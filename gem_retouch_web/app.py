@@ -21,6 +21,8 @@ st.set_page_config(page_title="GemRetouch", page_icon="💎", layout="wide",
                    initial_sidebar_state="collapsed")
 st.markdown("""<style>
 :root {--bar:#0e121b; --bar2:#141a27; --bg:#0e1117; --panel:#151a24; --line:#262d3d; --soft:#1c2230; --acc:#7aa2ff; --mut:#8f98ad; --txt:#e6e9ef;}
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {background: var(--bg);}
+[data-testid="stTextInputRootElement"], [data-baseweb="select"] > div, [data-testid="stNumberInputContainer"] {background: var(--bar2);}
 #MainMenu, footer {visibility: hidden;}
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"] {display: none !important;}
@@ -677,6 +679,11 @@ def panel_color():
 
 
 def panel_export():
+    if WEB and ss.get("zip_path") and Path(ss["zip_path"]).exists():
+        st.success(ss.get("zip_msg", "Your photos are ready."))
+        with open(ss["zip_path"], "rb") as fh:
+            st.download_button("⬇ Download " + ss.get("zip_name", "photos.zip"), fh, file_name=ss.get("zip_name", "photos.zip"),
+                               mime="application/zip", key="dl_prev", type="primary")
     sec("Save")
     if WEB:
         st.caption("Your edited photos are packed into one zip file that you download.")
@@ -699,10 +706,6 @@ def panel_export():
             st.code("\n".join(lines + ([f"… and {len(P['files']) - len(shown)} more"]
                                        if len(P["files"]) > len(shown) else [])))
     go_ = st.button("Process and save" if not WEB else "Process and make zip", type="primary", key="do_export")
-    if WEB and ss.get("zip_path") and Path(ss["zip_path"]).exists() and not go_:
-        with open(ss["zip_path"], "rb") as fh:
-            st.download_button("⬇ Download " + ss.get("zip_name", "photos.zip"), fh, file_name=ss.get("zip_name", "photos.zip"),
-                               mime="application/zip", key="dl_prev", type="primary")
     return go_
 
 
@@ -890,10 +893,9 @@ if do_export:
                             z.write(f_, f_.relative_to(out).as_posix())
                 shutil.rmtree(out, ignore_errors=True)
                 ss["zip_path"], ss["zip_name"] = str(zp), "gemretouch_edited.zip"
-                st.success(f"Done: {r['done']} photos in {time.time() - t0:.0f} s.")
-                with open(zp, "rb") as fh:
-                    st.download_button("⬇ Download gemretouch_edited.zip", fh, file_name="gemretouch_edited.zip",
-                                       mime="application/zip", key="dl_now", type="primary")
+                ss["zip_msg"] = (f"Done: {r['done']} photos in {time.time() - t0:.0f} s. Your zip is ready."
+                                 + (f" {len(r['errors'])} photo(s) failed: " + "; ".join(nm for nm, _ in r["errors"][:5]) if r["errors"] else ""))
+                st.rerun()
             else:
                 msg = f"Saved {r['done']} photos in {time.time() - t0:.0f} s to {out}"
                 if r["skipped"]:
